@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "III",
+    "RCR",
+    "III"
+  ],
+  "key": {
+    "I": { "item": "minecraft:iron_block" },
+    "R": { "item": "minecraft:redstone" },
+    "C": { "item": "createwarworks:cannon_barrel" }
+  },
+  "result": {
+    "id": "createwarworks:cannon_breech",
+    "count": 1
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "createwarworks:cannon_barrel",
+    "createwarworks:cannon_breech",
+    "createwarworks:autocannon_turret",
+    "createwarworks:radar"
+  ]
+}

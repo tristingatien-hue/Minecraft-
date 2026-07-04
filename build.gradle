@@ -1,0 +1,50 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.78'
+}
+
+version = project.mod_version
+group = project.mod_group
+
+base {
+    archivesName = 'create-warworks'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+neoForge {
+    version = project.neo_version
+
+    runs {
+        client {
+            client()
+        }
+        server {
+            server()
+        }
+    }
+
+    mods {
+        createwarworks {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+processResources {
+    var expandProps = [
+            mod_id           : project.mod_id,
+            mod_name         : project.mod_name,
+            mod_version      : project.mod_version,
+            minecraft_version: project.minecraft_version,
+            neo_version      : project.neo_version
+    ]
+    inputs.properties expandProps
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand expandProps
+    }
+}

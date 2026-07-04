@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:block/orientable_with_bottom",
+  "textures": {
+    "top": "createwarworks:block/cannon_breech_side",
+    "bottom": "createwarworks:block/cannon_breech_side",
+    "side": "createwarworks:block/cannon_breech_side",
+    "front": "createwarworks:block/cannon_breech_front"
+  }
+}

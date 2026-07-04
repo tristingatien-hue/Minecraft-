@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "axis=y": { "model": "createwarworks:block/cannon_barrel" },
+    "axis=z": { "model": "createwarworks:block/cannon_barrel_horizontal", "x": 90 },
+    "axis=x": { "model": "createwarworks:block/cannon_barrel_horizontal", "x": 90, "y": 90 }
+  }
+}

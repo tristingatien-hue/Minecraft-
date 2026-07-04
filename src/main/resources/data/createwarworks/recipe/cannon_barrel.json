@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "III",
+    "   ",
+    "III"
+  ],
+  "key": {
+    "I": { "item": "minecraft:iron_block" }
+  },
+  "result": {
+    "id": "createwarworks:cannon_barrel",
+    "count": 4
+  }
+}

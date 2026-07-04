@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column_horizontal",
+  "textures": {
+    "end": "createwarworks:block/cannon_barrel_end",
+    "side": "createwarworks:block/cannon_barrel_side"
+  }
+}

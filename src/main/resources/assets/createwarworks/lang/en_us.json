@@ -1,0 +1,24 @@
+{
+  "itemGroup.createwarworks": "Create: Warworks",
+
+  "block.createwarworks.cannon_barrel": "Cannon Barrel",
+  "block.createwarworks.cannon_breech": "Cannon Breech",
+  "block.createwarworks.autocannon_turret": "Autocannon Turret",
+  "block.createwarworks.radar": "Radar",
+
+  "item.createwarworks.shell": "Cannon Shell",
+  "item.createwarworks.autocannon_round": "Autocannon Round",
+  "item.createwarworks.targeting_linker": "Targeting Linker",
+
+  "entity.createwarworks.shell": "Cannon Shell",
+  "entity.createwarworks.bullet": "Autocannon Round",
+
+  "message.createwarworks.shell_loaded": "Shell loaded — fire with a redstone pulse",
+  "message.createwarworks.shell_removed": "Shell removed",
+  "message.createwarworks.breech_full": "Breech is already loaded",
+  "message.createwarworks.turret_ammo": "Turret magazine: %s / %s rounds",
+  "message.createwarworks.radar_selected": "Radar selected at %s, %s, %s",
+  "message.createwarworks.turret_linked": "Turret linked to radar at %s, %s, %s",
+  "message.createwarworks.turret_unlinked": "Turret unlinked from radar",
+  "message.createwarworks.no_radar_selected": "No radar selected — right-click a radar first"
+}

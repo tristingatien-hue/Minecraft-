@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "ITI",
+    "ITI",
+    "IGI"
+  ],
+  "key": {
+    "I": { "item": "minecraft:iron_ingot" },
+    "T": { "item": "minecraft:tnt" },
+    "G": { "item": "minecraft:gunpowder" }
+  },
+  "result": {
+    "id": "createwarworks:shell",
+    "count": 2
+  }
+}

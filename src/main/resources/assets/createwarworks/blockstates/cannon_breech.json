@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "facing=down": { "model": "createwarworks:block/cannon_breech_vertical", "x": 180 },
+    "facing=up": { "model": "createwarworks:block/cannon_breech_vertical" },
+    "facing=north": { "model": "createwarworks:block/cannon_breech" },
+    "facing=south": { "model": "createwarworks:block/cannon_breech", "y": 180 },
+    "facing=west": { "model": "createwarworks:block/cannon_breech", "y": 270 },
+    "facing=east": { "model": "createwarworks:block/cannon_breech", "y": 90 }
+  }
+}
