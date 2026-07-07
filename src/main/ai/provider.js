@@ -9,13 +9,23 @@
 
 const config = require('../config');
 
+async function detectModel(baseUrl) {
+  const res = await fetch(baseUrl + '/models', { signal: AbortSignal.timeout(4000) });
+  if (!res.ok) throw new Error(`No model configured and ${baseUrl}/models returned ${res.status}`);
+  const first = (await res.json()).data?.[0]?.id;
+  if (!first) throw new Error('No model configured and the runner reports none loaded');
+  return first;
+}
+
 async function chat(messages, { temperature = 0.4, maxTokens = 700 } = {}) {
   const ai = config.load().ai;
-  const res = await fetch(ai.baseUrl.replace(/\/$/, '') + '/chat/completions', {
+  const baseUrl = ai.baseUrl.replace(/\/$/, '');
+  const model = ai.model || await detectModel(baseUrl); // auto-pick if unset
+  const res = await fetch(baseUrl + '/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: ai.model, messages, temperature, max_tokens: maxTokens })
-  }).catch((e) => { throw new Error(`Can't reach the local AI at ${ai.baseUrl} — is Ollama (or your model runner) running? (${e.message})`); });
+    body: JSON.stringify({ model, messages, temperature, max_tokens: maxTokens })
+  }).catch((e) => { throw new Error(`Can't reach the local AI at ${ai.baseUrl} — is your model runner (Ollama/LM Studio) started? (${e.message})`); });
   if (!res.ok) throw new Error(`Local AI returned ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const body = await res.json();
   const text = body.choices?.[0]?.message?.content;

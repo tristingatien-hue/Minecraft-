@@ -12,13 +12,15 @@ const DEFAULTS = {
   shopName: 'My Woodworking Shop',
   currency: 'USD',
 
-  // Local AI backend — swappable. Any OpenAI-compatible endpoint works
-  // (Ollama exposes one at http://localhost:11434/v1). No cloud required.
+  // Local AI backend — swappable. Any OpenAI-compatible endpoint works:
+  // DeepSeek via Ollama → http://localhost:11434/v1 (model e.g. 'deepseek-r1:8b')
+  // DeepSeek via LM Studio → http://localhost:1234/v1
+  // Leave model empty to auto-use whatever the runner has loaded.
   ai: {
-    enabled: false,               // turned on in build stage 6
+    enabled: false,               // flip on in Settings once your model runner is up
     provider: 'openai-compatible',
     baseUrl: 'http://localhost:11434/v1',
-    model: 'llama3.1',
+    model: '',
     autoSendFaqReplies: false     // hard default: AI drafts, you approve
   },
 

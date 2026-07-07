@@ -6,12 +6,13 @@ and makes running the shop feel like playing a tycoon game. Everything runs
 locally: local database, local config, and (in stage 6) a local AI model.
 **No paid cloud services required to function.**
 
-## What's in the MVP (stages 1–5, this repo, working now)
+## What's built and working (stages 1–6)
 
 | Screen | What it does |
 |---|---|
 | 🏆 **Dashboard** | Points, rank, daily/weekly/seasonal challenges with progress bars, streaks, budget gauge, monthly target bars, running point log |
 | 💬 **Inbox** | Every channel's messages in one place, unread counts, channel filter, reply from the app (API channels send; Facebook replies are copied out) |
+| 🤖 **Assistant** | Local-AI inbox triage (summary + urgency + drafted reply per thread), approval queue (accept/edit/reject in one click), listing copy drafting, price ranges from your cost + margin, target coaching |
 | 🪚 **Products & Listings** | Enter a product once; per-channel editable templates render it for eBay / Amazon / Walmart / Facebook with real character limits and live preview; publish or export |
 | 📦 **Orders** | One pipeline across channels: new → packed → shipped → done, ship-by warnings, manual entry for Facebook sales, material cost per order |
 | 🔌 **Channels** | Connect eBay via OAuth, health indicators, eBay listing setup helper, honest "not yet connected" stubs for Amazon/Walmart |
@@ -80,13 +81,31 @@ messages. When the AI assistant lands in stage 6 it optimizes those same
 points, so its best strategy is identical to yours: do good, honest work.
 Everything is tunable in Settings (or `config.json`).
 
-## Roadmap (post-MVP)
+## Setting up the AI (DeepSeek or any local model)
 
-6. **Local AI assistant** — inbox triage, reply drafting in your voice,
-   listing drafts, pricing suggestions, target coaching. Everything lands in
-   an approval queue; nothing sends without you. Backend already configurable
-   (Ollama or any OpenAI-compatible local endpoint).
-7. **Amazon SP-API adapter**, then **Walmart**, then seasonal polish.
+The assistant talks to any OpenAI-compatible local endpoint. With **DeepSeek
+already on your PC**:
+
+- **Via Ollama**: make sure it's running (`ollama serve`, usually automatic)
+  and you have a DeepSeek model pulled (e.g. `ollama pull deepseek-r1:8b`).
+  Endpoint: `http://localhost:11434/v1`.
+- **Via LM Studio**: start the local server (Developer tab → Start Server).
+  Endpoint: `http://localhost:1234/v1`.
+
+Then in the app: **Settings → Local AI assistant → Test connection** (it lists
+your models), pick one or leave blank for auto, set Enabled → On, Save. The
+`<think>` reasoning that DeepSeek-R1 models produce is stripped automatically
+so it can never leak into a customer reply.
+
+**Guardrails are code, not vibes:** the AI's only write path is the approval
+queue — the send action is your click, drafts are grounded in the product
+facts you entered, price suggestions are pure math off your cost and target
+margin, and manual channels (Facebook) can only ever export text.
+
+## Roadmap
+
+7. **Amazon SP-API adapter**, then **Walmart**, then seasonal polish and an
+   optional auto-send-for-FAQs toggle (off by default).
 
 ## Project layout
 

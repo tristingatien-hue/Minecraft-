@@ -34,12 +34,19 @@ export async function render(el) {
     </div>
 
     <div class="panel"><h2>🤖 Local AI assistant</h2>
-      <p class="muted small-text" style="margin-bottom:10px">Arrives in build stage 6. The backend is already swappable: any OpenAI-compatible local endpoint works (Ollama exposes one at <span class="mono">http://localhost:11434/v1</span>). Nothing is sent to the cloud.</p>
+      <p class="muted small-text" style="margin-bottom:10px">Any OpenAI-compatible local endpoint works — DeepSeek via <b>Ollama</b> is
+      <span class="mono">http://localhost:11434/v1</span>, via <b>LM Studio</b> <span class="mono">http://localhost:1234/v1</span>.
+      Leave the model blank to auto-use whatever's loaded. Nothing is ever sent to the cloud.</p>
       <div class="grid cols-3">
         <label class="field"><span class="lbl">Endpoint URL</span><input data-a="baseUrl" value="${esc(cfg.ai.baseUrl)}"></label>
-        <label class="field"><span class="lbl">Model</span><input data-a="model" value="${esc(cfg.ai.model)}"></label>
-        <label class="field"><span class="lbl">Enabled</span><select data-a="enabled" disabled><option>Not yet — stage 6</option></select></label>
+        <label class="field"><span class="lbl">Model (blank = auto)</span><input data-a="model" value="${esc(cfg.ai.model)}" list="ai-models"><datalist id="ai-models"></datalist></label>
+        <label class="field"><span class="lbl">Enabled</span><select data-a="enabled">
+          <option value="false" ${cfg.ai.enabled ? '' : 'selected'}>Off</option>
+          <option value="true" ${cfg.ai.enabled ? 'selected' : ''}>On</option>
+        </select></label>
       </div>
+      <button class="small" id="test-ai">Test connection</button>
+      <span class="small-text muted" id="test-ai-result"></span>
     </div>
 
     <div class="panel"><h2>🎇 Seasons &amp; challenges</h2>
@@ -57,12 +64,25 @@ export async function render(el) {
     pg.appendChild(h(`<label class="field"><span class="lbl">${esc(key)}</span><input data-p="${key}" type="number" value="${val}"></label>`));
   }
 
+  el.querySelector('#test-ai').onclick = async () => {
+    const out = el.querySelector('#test-ai-result');
+    out.textContent = 'testing…';
+    try {
+      const r = await call('ai.testConnection', { baseUrl: el.querySelector('[data-a=baseUrl]').value });
+      out.textContent = r.models.length ? `✅ Found: ${r.models.join(', ')}` : '✅ Reachable (no models reported — load one in your runner)';
+      const dl = el.querySelector('#ai-models');
+      dl.innerHTML = r.models.map(m => `<option value="${esc(m)}">`).join('');
+    } catch (e) { out.textContent = '❌ ' + e.message; }
+  };
+
   el.querySelector('#save-settings').onclick = async () => {
     const partial = { game: { targets: {}, points: {} }, ai: {} };
     el.querySelectorAll('[data-c]').forEach(i => partial[i.dataset.c] = i.type === 'number' ? Number(i.value) : i.value);
     el.querySelectorAll('[data-t]').forEach(i => partial.game.targets[i.dataset.t] = Number(i.value));
     el.querySelectorAll('[data-p]').forEach(i => partial.game.points[i.dataset.p] = Number(i.value));
-    el.querySelectorAll('[data-a]').forEach(i => { if (!i.disabled) partial.ai[i.dataset.a] = i.value; });
+    el.querySelectorAll('[data-a]').forEach(i => {
+      partial.ai[i.dataset.a] = i.dataset.a === 'enabled' ? i.value === 'true' : i.value;
+    });
     await call('config.save', partial);
     toast('Saved', 'Settings updated. Sync interval applies on next launch.');
   };

@@ -4,6 +4,7 @@
 const VIEWS = [
   { id: 'dashboard', icon: '🏆', label: 'Dashboard' },
   { id: 'inbox', icon: '💬', label: 'Inbox', badgeKey: 'unread' },
+  { id: 'assistant', icon: '🤖', label: 'Assistant', badgeKey: 'approvals' },
   { id: 'composer', icon: '🪚', label: 'Products & Listings' },
   { id: 'orders', icon: '📦', label: 'Orders', badgeKey: 'openOrders' },
   { id: 'channels', icon: '🔌', label: 'Channels' },

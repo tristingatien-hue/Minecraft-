@@ -69,8 +69,11 @@ async function drawDetail() {
       <textarea data-k="photos" rows="2">${esc(JSON.parse(p.photos || '[]').join('\n'))}</textarea></label>
     <div class="row">
       <button class="primary" data-save>${p.id ? 'Save changes' : 'Create product'}</button>
+      <button data-ai-draft title="The AI drafts a description and tags from your title/materials/dimensions — you review before saving">🤖 AI draft copy</button>
+      <button data-ai-price title="Price range computed from your material cost and target margin — never changes anything by itself">💲 Suggest price</button>
       ${p.id ? '<button class="danger" data-del>Delete</button>' : ''}
     </div>
+    <div data-ai-out></div>
   </div>`);
   form.querySelector('[data-save]').onclick = async () => {
     const v = {};
@@ -86,6 +89,30 @@ async function drawDetail() {
     selectedProduct = res.id;
     toast('Saved', 'Product saved.');
     drawList(); drawDetail();
+  };
+  form.querySelector('[data-ai-draft]').onclick = async () => {
+    const get = (k) => form.querySelector(`[data-k=${k}]`).value;
+    toast('AI', 'Drafting copy with your local model…');
+    const d = await call('ai.draftListing', { title: get('title'), materials: get('materials'), dimensions: get('dimensions'), notes: get('description') });
+    form.querySelector('[data-k=description]').value = d.description;
+    if (d.tags && !get('tags')) form.querySelector('[data-k=tags]').value = d.tags;
+    const out = form.querySelector('[data-ai-out]');
+    out.innerHTML = '';
+    if (d.titleIdeas?.length) {
+      out.appendChild(h(`<div class="info-box" style="margin-top:10px"><b>Title ideas</b> (click to use):
+        ${d.titleIdeas.map(t => `<div class="tab" style="margin-top:6px;display:inline-block">${esc(t)}</div>`).join(' ')}</div>`));
+      out.querySelectorAll('.tab').forEach(tab => tab.onclick = () => { form.querySelector('[data-k=title]').value = tab.textContent; });
+    }
+    toast('AI draft ready', 'Review the description — nothing is saved until you click Save.');
+  };
+  form.querySelector('[data-ai-price]').onclick = async () => {
+    const cost = Math.round(parseFloat(form.querySelector('[data-k=cost]').value || '0') * 100);
+    const r = await call('ai.suggestPrice', { costCents: cost });
+    const out = form.querySelector('[data-ai-out]');
+    out.innerHTML = '';
+    out.appendChild(h(`<div class="info-box" style="margin-top:10px"><b>Price range</b> —
+      floor $${r.floor.toFixed(2)} · target (${r.targetMarginPct}% margin) <b>$${r.target.toFixed(2)}</b> · premium $${r.premium.toFixed(2)}
+      <div class="muted small-text" style="margin-top:4px">${esc(r.note)}</div></div>`));
   };
   const del = form.querySelector('[data-del]');
   if (del) del.onclick = async () => {

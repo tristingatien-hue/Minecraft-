@@ -188,6 +188,56 @@ async function main() {
     { start: new Date(Date.now() + 86400_000), end: new Date(Date.now() + 2 * 86400_000) });
   ok('zero-late challenge cannot be farmed with zero shipments', lateMetric.done === false);
 
+  console.log('\nStage 6: local AI assistant (mocked model)');
+  const assistant = require('../src/main/ai/assistant');
+  const provider = require('../src/main/ai/provider');
+
+  ok('assistant refuses when disabled', !!(await rpc.dispatch('ai.triageInbox', {})).error);
+  config.save({ ai: { enabled: true } });
+
+  // Mock the local model — DeepSeek-style, complete with <think> reasoning noise.
+  provider.chat = async (messages) => {
+    const prompt = messages[messages.length - 1].content;
+    if (prompt.includes('"summary"')) {
+      return '<think>The buyer asks about food safety. I should check the facts…</think>\n{"summary": "Asks if the board is food safe", "urgent": false, "draft": "Hi! Yes — it\'s finished with food-safe mineral oil, so it\'s ready for the kitchen."}';
+    }
+    if (prompt.includes('"description"')) {
+      return '```json\n{"description": "A hand-turned bowl.", "tags": "bowl, walnut", "titleIdeas": ["<think>x</think>Walnut Bowl"]}\n```';
+    }
+    return '<think>coaching…</think>You are $345 short of this week\'s $385 target — ship the pending order today for +120.';
+  };
+
+  ok('scrub removes <think> reasoning', assistant._test.scrub('<think>secret</think>Hello') === 'Hello');
+  ok('parseJson digs JSON out of fences/prose', assistant._test.parseJson('noise ```json {"a":1}``` tail').a === 1);
+
+  const fbT = (await rpc.dispatch('inbox.manualThread', { counterpart: 'Rita', body: 'Is the shelf still available?', listingRef: 'Pine shelf' })).result;
+  const triage = (await rpc.dispatch('ai.triageInbox', {})).result;
+  ok('triage queues drafts for unanswered threads only', triage.queued >= 2);
+  const triage2 = (await rpc.dispatch('ai.triageInbox', {})).result;
+  ok('triage never double-queues a thread', triage2.queued === 0);
+
+  const queue = (await rpc.dispatch('approvals.list', {})).result;
+  ok('queue holds pending drafts, scrubbed of <think>', queue.length >= 2 && queue.every(q => !q.payload.draft.includes('<think>')));
+  ok('nothing was sent without approval', db.prepare(`SELECT COUNT(*) c FROM messages WHERE direction='out' AND thread_id=?`).get(fbT.threadId).c === 0);
+
+  const fbItem = queue.find(q => q.payload.threadId === fbT.threadId);
+  const approved = (await rpc.dispatch('approvals.approve', { id: fbItem.id, editedDraft: 'Yes, still available! Want to pick it up this weekend?' })).result;
+  ok('approve routes through the normal reply pipeline (manual → export)', approved.exported.includes('pick it up'));
+  ok('approved item leaves the queue', (await rpc.dispatch('approvals.list', {})).result.every(q => q.id !== fbItem.id));
+  const other = (await rpc.dispatch('approvals.list', {})).result[0];
+  await rpc.dispatch('approvals.reject', { id: other.id });
+  ok('reject clears without sending', (await rpc.dispatch('approvals.list', {})).result.length === 0);
+
+  const draft = (await rpc.dispatch('ai.draftListing', { title: 'Walnut Bowl', materials: 'walnut' })).result;
+  ok('listing draft parsed + scrubbed', draft.description === 'A hand-turned bowl.' && draft.titleIdeas[0] === 'Walnut Bowl');
+
+  const price = (await rpc.dispatch('ai.suggestPrice', { costCents: 2000 })).result;
+  ok('price range is deterministic math from cost + target margin', price.target === 33.33 && price.floor < price.target && price.premium > price.target);
+
+  const coach = (await rpc.dispatch('ai.coach', {})).result;
+  ok('coach cites the numbers, reasoning stripped', coach.advice.includes('$345') && !coach.advice.includes('<think>'));
+  ok('approvals badge counts pending', (await rpc.dispatch('app.badges', {})).result.approvals === 0);
+
   console.log(`\n${passed} checks passed${process.exitCode ? ' (WITH FAILURES)' : ''}`);
   require('../src/main/db').close();
   fs.rmSync(process.env.SHOP_DATA_DIR, { recursive: true, force: true });
