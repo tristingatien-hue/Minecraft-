@@ -1,7 +1,7 @@
 'use strict';
 
 const path = require('path');
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, clipboard } = require('electron');
 const rpc = require('./rpc');
 
 let win = null;
@@ -42,6 +42,7 @@ function loadFeatureModules(broadcastFn) {
     ['./core/products'],
     ['./core/listings'],
     ['./core/orders'],
+    ['./ai/assistant'],
     ['./core/game', (m) => m.init({ broadcast: broadcastFn })],
     ['./core/sync', (m) => m.start({ broadcast: broadcastFn })]
   ];
@@ -67,6 +68,7 @@ app.whenReady().then(() => {
   loadFeatureModules(broadcast);
 
   ipcMain.handle('rpc', (_event, method, params) => rpc.dispatch(method, params));
+  ipcMain.handle('clipboard-write', (_event, text) => clipboard.writeText(String(text)));
 
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
