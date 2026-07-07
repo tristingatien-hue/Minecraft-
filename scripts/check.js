@@ -68,6 +68,52 @@ async function main() {
     && !Buffer.from(db.prepare(`SELECT value FROM secrets WHERE key='ebay.client_secret'`).get().value).toString('utf8').includes('shh-cert-id'));
   ok('ebay publish checklist reports missing setup', adapters.get('ebay').publishChecklist().length === 5);
 
+  console.log('\nStage 3: unified inbox + orders + sync');
+  const inbox = require('../src/main/core/inbox');
+  const ordersMod = require('../src/main/core/orders');
+  const eventsBus = require('../src/main/core/events');
+  const seen = [];
+  for (const evt of ['message.replied', 'thread.resolved', 'order.new', 'order.shipped', 'sale.completed']) {
+    eventsBus.on(evt, (p) => seen.push({ evt, p }));
+  }
+
+  const fakeThreads = [{
+    externalThreadId: 'buyer1::123', subject: 'Question about oak bowl', counterpart: 'buyer1', listingRef: '123', orderRef: '',
+    messages: [{ externalId: 'm1', direction: 'in', sender: 'buyer1', body: 'Is it food safe?', sentAt: '2026-07-07T10:00:00Z' }]
+  }];
+  let added = inbox.upsertThreads('ebay', fakeThreads);
+  ok('sync inserts new incoming messages', added === 1);
+  added = inbox.upsertThreads('ebay', fakeThreads);
+  ok('sync dedupes already-seen messages', added === 0);
+  const threads = (await rpc.dispatch('inbox.threads', {})).result;
+  ok('inbox lists normalized threads with unread', threads.length === 1 && threads[0].unread === 1 && threads[0].channel_name === 'eBay');
+  ok('inbox channel filter works', (await rpc.dispatch('inbox.threads', { channel: 'facebook' })).result.length === 0);
+
+  const manual = (await rpc.dispatch('inbox.manualThread', { counterpart: 'Jane', body: 'Still available?', listingRef: 'cutting board' })).result;
+  const reply = (await rpc.dispatch('inbox.reply', { threadId: manual.threadId, body: 'Yes! Can deliver Saturday.' })).result;
+  ok('facebook reply routes to export (copy/paste)', reply.exported === 'Yes! Can deliver Saturday.');
+  ok('reply emits message.replied event', seen.some(s => s.evt === 'message.replied' && s.p.channelId === 'facebook'));
+  await rpc.dispatch('inbox.resolve', { threadId: manual.threadId });
+  ok('resolve clears unread + emits event', seen.some(s => s.evt === 'thread.resolved'));
+
+  const fakeOrders = [{
+    externalId: 'ORD-1', buyer: 'buyer1', itemSummary: 'Walnut cutting board', quantity: 1,
+    totalCents: 6500, currency: 'USD', orderDate: '2026-07-06T12:00:00Z',
+    shipBy: new Date(Date.now() + 3 * 86400_000).toISOString(), meta: {}
+  }];
+  ok('order sync inserts', ordersMod.upsertOrders('ebay', fakeOrders) === 1);
+  ok('order sync dedupes', ordersMod.upsertOrders('ebay', fakeOrders) === 0);
+  const orderRow = (await rpc.dispatch('orders.list', {})).result[0];
+  await rpc.dispatch('orders.setCost', { orderId: orderRow.id, costCents: 2000 });
+  await rpc.dispatch('orders.setStatus', { orderId: orderRow.id, status: 'packed' });
+  await rpc.dispatch('orders.setStatus', { orderId: orderRow.id, status: 'shipped' });
+  ok('shipping emits on-time event', seen.some(s => s.evt === 'order.shipped' && s.p.onTime === true));
+  await rpc.dispatch('orders.setStatus', { orderId: orderRow.id, status: 'done' });
+  ok('completion emits sale.completed', seen.some(s => s.evt === 'sale.completed'));
+  const manualOrder = (await rpc.dispatch('orders.manualAdd', { itemSummary: 'Pine shelf', totalCents: 4000, costCents: 1000 })).result;
+  ok('manual facebook sale recorded', manualOrder.orderId > 0);
+  ok('badges reflect open orders', (await rpc.dispatch('app.badges', {})).result.openOrders === 1);
+
   console.log(`\n${passed} checks passed${process.exitCode ? ' (WITH FAILURES)' : ''}`);
   require('../src/main/db').close();
   fs.rmSync(process.env.SHOP_DATA_DIR, { recursive: true, force: true });
