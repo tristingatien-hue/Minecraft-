@@ -73,7 +73,7 @@ async function main() {
   const ordersMod = require('../src/main/core/orders');
   const eventsBus = require('../src/main/core/events');
   const seen = [];
-  for (const evt of ['message.replied', 'thread.resolved', 'order.new', 'order.shipped', 'sale.completed']) {
+  for (const evt of ['message.replied', 'thread.resolved', 'order.new', 'order.shipped', 'sale.completed', 'listing.published']) {
     eventsBus.on(evt, (p) => seen.push({ evt, p }));
   }
 
@@ -113,6 +113,40 @@ async function main() {
   const manualOrder = (await rpc.dispatch('orders.manualAdd', { itemSummary: 'Pine shelf', totalCents: 4000, costCents: 1000 })).result;
   ok('manual facebook sale recorded', manualOrder.orderId > 0);
   ok('badges reflect open orders', (await rpc.dispatch('app.badges', {})).result.openOrders === 1);
+
+  console.log('\nStage 4: products, templates, listing composer');
+  require('../src/main/core/products');
+  require('../src/main/core/listings');
+  const prod = (await rpc.dispatch('products.save', {
+    title: 'Walnut Serving Board', description: 'Hand-finished serving board with juice groove.',
+    price_cents: 6500, cost_cents: 1800, quantity: 2,
+    dimensions: '18" x 10" x 1"', materials: 'black walnut', tags: 'serving board, walnut, kitchen',
+    photos: ['https://example.com/board.jpg']
+  })).result;
+  ok('product saves', prod.id > 0);
+  ok('products list', (await rpc.dispatch('products.list', {})).result.length === 1);
+
+  const ebayR = (await rpc.dispatch('listings.render', { productId: prod.id, channelId: 'ebay' })).result;
+  ok('ebay render fills variables', ebayR.fields.title.value.includes('Walnut Serving Board') && ebayR.fields.title.value.includes('black walnut'));
+  ok('ebay render enforces 80-char title info', ebayR.fields.title.limit === 80 && typeof ebayR.fields.title.over === 'boolean');
+  const fbR = (await rpc.dispatch('listings.render', { productId: prod.id, channelId: 'facebook' })).result;
+  ok('facebook render includes hashtags + price', fbR.fields.tags.value.includes('#walnut') && fbR.fields.price.value === '$65.00');
+
+  const tpl = (await rpc.dispatch('templates.get', { channelId: 'facebook' })).result;
+  tpl.fields.title.template = 'CUSTOM {{title}}';
+  await rpc.dispatch('templates.save', { channelId: 'facebook', template: tpl });
+  const fbR2 = (await rpc.dispatch('listings.render', { productId: prod.id, channelId: 'facebook' })).result;
+  ok('templates are editable + persist', fbR2.fields.title.value === 'CUSTOM Walnut Serving Board');
+  await rpc.dispatch('templates.reset', { channelId: 'facebook' });
+
+  const pub = (await rpc.dispatch('listings.publish', { productId: prod.id, channelIds: ['facebook', 'amazon'] })).result;
+  const fbPubRes = pub.find(r => r.channelId === 'facebook');
+  const amzPubRes = pub.find(r => r.channelId === 'amazon');
+  ok('facebook publish exports formatted listing', fbPubRes.exported.includes('Walnut Serving Board') && fbPubRes.exported.includes('#handmade'));
+  ok('unconnected channel fails cleanly, not silently', /doesn't support publishing/.test(amzPubRes.error));
+  ok('listing published event fired', seen.some(s => s.evt === 'listing.published'));
+  const hist = (await rpc.dispatch('listings.forProduct', { productId: prod.id })).result;
+  ok('listing history recorded', hist.some(l => l.status === 'exported') && hist.some(l => l.status === 'error'));
 
   console.log(`\n${passed} checks passed${process.exitCode ? ' (WITH FAILURES)' : ''}`);
   require('../src/main/db').close();
