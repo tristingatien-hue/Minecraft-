@@ -148,6 +148,46 @@ async function main() {
   const hist = (await rpc.dispatch('listings.forProduct', { productId: prod.id })).result;
   ok('listing history recorded', hist.some(l => l.status === 'exported') && hist.some(l => l.status === 'error'));
 
+  console.log('\nStage 5: gamification engine');
+  const game = require('../src/main/core/game');
+  const broadcasts = [];
+  game.init({ broadcast: (p) => broadcasts.push(p) });
+  const s0 = game.summary();
+  ok('summary has level/targets/challenges/streaks', s0.level.name.length > 0 && s0.month.revenueTarget > 0
+    && s0.challenges.length >= 6 && 'dailyShip' in s0.streaks);
+
+  // Ship + complete the pending manual sale (pine shelf: $40 sale, $10 cost = 75% margin)
+  const pending = (await rpc.dispatch('orders.list', { activeOnly: true })).result[0];
+  await rpc.dispatch('orders.setStatus', { orderId: pending.id, status: 'packed' });
+  await rpc.dispatch('orders.setStatus', { orderId: pending.id, status: 'shipped' });
+  await rpc.dispatch('orders.setStatus', { orderId: pending.id, status: 'done' });
+  const ledger = () => (db.prepare('SELECT * FROM points_ledger ORDER BY id').all());
+  ok('on-time shipment scores points', ledger().some(l => l.reason.includes('Shipped on time') && l.points === 120));
+  ok('sale points scale with margin (75% vs 40% target → 1.5x cap)', ledger().some(l => l.reason.includes('Sale completed') && l.points === 150));
+  ok('daily "ship everything" challenge completes', ledger().some(l => l.reason.includes('Clear the Bench')));
+  ok('weekly zero-late challenge completes (real shipments, none late)', ledger().some(l => l.reason.includes('Clockwork Shipper')));
+  ok('points broadcast to UI', broadcasts.some(b => b.type === 'points'));
+
+  const t2 = (await rpc.dispatch('inbox.manualThread', { counterpart: 'Sam', body: 'Do you ship to Canada?' })).result;
+  await rpc.dispatch('inbox.reply', { threadId: t2.threadId, body: 'Yes — tracked, about a week.' });
+  ok('reply + fast-reply bonus awarded', ledger().some(l => l.reason.includes('Fast reply')) && ledger().some(l => l.reason.includes('Replied to a customer')));
+
+  await rpc.dispatch('game.recordReview', { positive: true, note: 'loved the board' });
+  ok('positive review scores', ledger().some(l => l.reason.includes('Positive review') && l.points === 150));
+
+  await rpc.dispatch('expenses.add', { amountCents: 12000, category: 'materials', note: 'walnut stock' });
+  const s1 = game.summary();
+  ok('expenses feed the budget gauge', s1.month.spent === 120);
+  ok("streak counts today's shipping day", s1.streaks.dailyShip.count === 1);
+  ok('level progresses with points', s1.points >= 500 && s1.level.name !== 'Sawdust Apprentice' && s1.level.pointsToNext > 0);
+
+  const feed = (await rpc.dispatch('game.feed', {})).result;
+  ok('point feed is a running log', feed.length >= 6 && feed[0].ts);
+
+  const lateMetric = game._test.metricValue('late_shipments_max', 0,
+    { start: new Date(Date.now() + 86400_000), end: new Date(Date.now() + 2 * 86400_000) });
+  ok('zero-late challenge cannot be farmed with zero shipments', lateMetric.done === false);
+
   console.log(`\n${passed} checks passed${process.exitCode ? ' (WITH FAILURES)' : ''}`);
   require('../src/main/db').close();
   fs.rmSync(process.env.SHOP_DATA_DIR, { recursive: true, force: true });

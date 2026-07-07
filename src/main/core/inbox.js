@@ -93,7 +93,8 @@ rpc.register('inbox.reply', async ({ threadId, body }) => {
     VALUES (?, 'out', 'me', ?, datetime('now'), ?)`).run(threadId, body, status);
   db.prepare(`UPDATE threads SET unread = 0, last_message_at = datetime('now') WHERE id = ?`).run(threadId);
 
-  const responseMinutes = lastIn ? Math.max(0, (Date.now() - new Date(lastIn.at + 'Z').getTime()) / 60000) : null;
+  const lastInDate = lastIn ? (lastIn.at.includes('T') ? new Date(lastIn.at) : new Date(lastIn.at.replace(' ', 'T') + 'Z')) : null;
+  const responseMinutes = lastInDate ? Math.max(0, (Date.now() - lastInDate.getTime()) / 60000) : null;
   events.emit('message.replied', { threadId, channelId: thread.channel_id, responseMinutes });
   return result;
 });
